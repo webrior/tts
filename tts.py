@@ -1,12 +1,34 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import edge_tts
 import asyncio
 import tempfile
-import os
+from flask import Flask, Response
 
-# Configuration spéciale pour Render - Pas besoin de pygame.mixer.init()
-# Nous utiliserons directement la lecture audio de Streamlit
+# Configuration AdSense
+ADSENSE_SCRIPT = """
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1930140755399931"
+     crossorigin="anonymous"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1930140755399931",
+          enable_page_level_ads: true
+     });
+</script>
+"""
 
+META_TAG = """
+<meta name="google-adsense-account" content="ca-pub-1930140755399931">
+"""
+
+# Création de l'application Flask pour servir ads.txt
+app = Flask(__name__)
+
+@app.route('/ads.txt')
+def serve_ads_txt():
+    return Response("google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0", mimetype='text/plain')
+
+# Configuration des langues
 LANGUAGES = {
     "english": {
         "title": "Text to Speech",
@@ -48,6 +70,23 @@ async def save_audio(text, voice, output_path):
     await communicate.save(output_path)
 
 def main():
+    # Injection des balises AdSense
+    components.html(META_TAG, height=0)
+    components.html(ADSENSE_SCRIPT, height=0)
+    
+    # Bannière publicitaire en haut
+    components.html("""
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-1930140755399931"
+         data-ad-slot="7259870550"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>
+         (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+    """, height=100)
+    
     st.title("Text to Speech Converter")
     
     # Sélection de langue
@@ -65,6 +104,19 @@ def main():
             test_file = tmp_file.name
             asyncio.run(save_audio(lang_data["test_text"], selected_voice, test_file))
             st.audio(test_file)
+            
+            # Publicité après le test
+            components.html("""
+            <ins class="adsbygoogle"
+                 style="display:block; text-align:center;"
+                 data-ad-layout="in-article"
+                 data-ad-format="fluid"
+                 data-ad-client="ca-pub-1930140755399931"
+                 data-ad-slot="7259870550"></ins>
+            <script>
+                 (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
+            """, height=200)
     
     # Génération d'audio principal
     text = st.text_area(lang_data["text_label"], height=200)
@@ -78,6 +130,29 @@ def main():
                     asyncio.run(save_audio(text, selected_voice, tmp_file.name))
                     st.audio(tmp_file.name)
                     st.success(lang_data["success"])
+                    
+                    # Publicité après génération
+                    components.html("""
+                    <ins class="adsbygoogle"
+                         style="display:block"
+                         data-ad-client="ca-pub-1930140755399931"
+                         data-ad-slot="7259870550"
+                         data-ad-format="auto"
+                         data-full-width-responsive="true"></ins>
+                    <script>
+                         (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                    """, height=100)
+                    
+                    # Option pour générer un autre audio
+                    if st.button("Generate another audio"):
+                        st.experimental_rerun()
 
 if __name__ == "__main__":
+    # Pour que Flask et Streamlit fonctionnent ensemble sur Render
+    from threading import Thread
+    flask_thread = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 8080})
+    flask_thread.daemon = True
+    flask_thread.start()
+    
     main()
