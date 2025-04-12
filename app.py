@@ -1,1 +1,4 @@
-from your_main_file import flask_app  # Importez votre application Flask
+from tts import flask_app
+
+if __name__ == "__main__":
+    flask_app.run()
