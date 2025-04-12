@@ -7,10 +7,8 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: |
-      gunicorn -b :$PORT tts:flask_app & \
+      gunicorn -b :$PORT tts:flask_app --threads 2 & \
       streamlit run tts.py --server.port $PORT --server.headless=true
     envVars:
       - key: PORT
         value: 10000
-      - key: FLASK_APP
-        value: tts.py
