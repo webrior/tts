@@ -6,22 +6,24 @@ import tempfile
 import os
 from flask import Flask, Response
 from threading import Thread
+from io import BytesIO
 
-# Configuration AdSense
+# ================= CONFIGURATION =================
 ADSENSE_CLIENT = "ca-pub-1930140755399931"
-ADSENSE_SLOT = "7259870550"  # Remplacez par votre vrai slot AdSense
+ADSENSE_SLOT = "7259870550"  # À remplacer par votre slot
 
-# Application Flask
-flask_app = Flask(__name__)
+# ================= APPLICATION FLASK =================
+flask_app = Flask(__name__, static_folder='static')
 
 @flask_app.route('/ads.txt')
 def serve_ads_txt():
-    return Response("google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0", mimetype='text/plain')
+    content = "google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0"
+    return Response(content, mimetype='text/plain')
 
 def run_flask():
     flask_app.run(host='0.0.0.0', port=8080)
 
-# Dictionnaire de langues
+# ================= DICTIONNAIRE DE LANGUES =================
 LANGUAGES = {
     "english": {
         "title": "Text to Speech Pro",
@@ -32,7 +34,7 @@ LANGUAGES = {
         "test_text": "This is a test audio",
         "test_button": "Test Voice",
         "error_empty_text": "Please enter some text",
-        "audio_warning": "Audio preview available in download"
+        "download_ads": "Download ads.txt"
     },
     "french": {
         "title": "Synthèse Vocale Pro",
@@ -43,7 +45,7 @@ LANGUAGES = {
         "test_text": "Ceci est un test audio",
         "test_button": "Tester la Voix",
         "error_empty_text": "Veuillez entrer du texte",
-        "audio_warning": "Aperçu audio disponible en téléchargement"
+        "download_ads": "Télécharger ads.txt"
     },
     "arabic": {
         "title": "محول النص إلى كلام",
@@ -54,11 +56,11 @@ LANGUAGES = {
         "test_text": "هذا اختبار صوتي",
         "test_button": "تجربة الصوت",
         "error_empty_text": "الرجاء إدخال نص",
-        "audio_warning": "معاينة الصوت متاحة في التنزيل"
+        "download_ads": "تنزيل ads.txt"
     }
 }
 
-# Fonctions asynchrones
+# ================= FONCTIONS TTS =================
 async def get_voices(lang):
     voices = await edge_tts.VoicesManager.create()
     if lang == "french":
@@ -68,17 +70,18 @@ async def get_voices(lang):
     else:
         return voices.find(Language="en")
 
-async def generate_audio_file(text, voice_name, file_path):
+async def generate_audio(text, voice_name, filename="output.mp3"):
     communicate = edge_tts.Communicate(text, voice_name)
-    await communicate.save(file_path)
+    await communicate.save(filename)
+    return filename
 
-# Interface Streamlit
+# ================= INTERFACE STREAMLIT =================
 def main():
     st.set_page_config(page_title="TTS Pro", layout="wide")
     
     # Injection AdSense
-    components.html(f"""<meta name="google-adsense-account" content="{ADSENSE_CLIENT}">""", height=0)
     components.html(f"""
+    <meta name="google-adsense-account" content="{ADSENSE_CLIENT}">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT}"
         crossorigin="anonymous"></script>
     <ins class="adsbygoogle"
@@ -99,32 +102,37 @@ def main():
     voice_names = [v["Name"] for v in voices]
     selected_voice = st.selectbox(lang_data["select_voice"], voice_names)
 
-    # Bouton de test de voix (version alternative sans lecture)
-    if st.button(lang_data["test_button"]):
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-            test_text = lang_data["test_text"]
-            asyncio.run(generate_audio_file(test_text, selected_voice, tmp_file.name))
-            with open(tmp_file.name, "rb") as f:
-                st.download_button(
-                    label="Download Test Audio",
-                    data=f,
-                    file_name="test_audio.mp3",
-                    mime="audio/mpeg"
-                )
-            st.warning(lang_data["audio_warning"])
-            os.unlink(tmp_file.name)
-
     # Zone de texte
     text = st.text_area(lang_data["text_label"], height=200)
+
+    # Bouton de test
+    if st.button(lang_data["test_button"]):
+        if not text.strip():
+            st.error(lang_data["error_empty_text"])
+        else:
+            with st.spinner("Generating test audio..."):
+                test_file = asyncio.run(generate_audio(
+                    lang_data["test_text"], 
+                    selected_voice,
+                    "test_audio.mp3"
+                ))
+                with open(test_file, "rb") as f:
+                    st.download_button(
+                        label="Download Test",
+                        data=f,
+                        file_name="test_audio.mp3",
+                        mime="audio/mpeg"
+                    )
+                os.unlink(test_file)
 
     # Bouton de génération
     if st.button(lang_data["generate"]):
         if not text.strip():
             st.error(lang_data["error_empty_text"])
         else:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                asyncio.run(generate_audio_file(text, selected_voice, tmp_file.name))
-                with open(tmp_file.name, "rb") as f:
+            with st.spinner("Generating audio..."):
+                output_file = asyncio.run(generate_audio(text, selected_voice))
+                with open(output_file, "rb") as f:
                     st.download_button(
                         label="Download Audio",
                         data=f,
@@ -132,7 +140,17 @@ def main():
                         mime="audio/mpeg"
                     )
                 st.success(lang_data["success"])
-                os.unlink(tmp_file.name)
+                os.unlink(output_file)
+
+    # Téléchargement ads.txt alternatif
+    st.markdown("---")
+    ads_content = "google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0"
+    st.download_button(
+        label=lang_data["download_ads"],
+        data=ads_content,
+        file_name="ads.txt",
+        mime="text/plain"
+    )
 
     # Publicité en bas de page
     components.html(f"""
@@ -147,8 +165,7 @@ def main():
 
 if __name__ == "__main__":
     # Démarrer Flask dans un thread séparé
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
+    Thread(target=run_flask, daemon=True).start()
     
     # Démarrer Streamlit
     main()
