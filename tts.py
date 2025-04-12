@@ -35,23 +35,6 @@ def run_flask():
 # Démarrer Flask dans un thread séparé
 Thread(target=run_flask, daemon=True).start()
 
-# Interface Streamlit
-st.set_page_config(page_title="TTS Pro", layout="wide")
-
-# Injection AdSense
-components.html(ADSENSE_HEAD, height=0)
-components.html(f"""
-<ins class="adsbygoogle"
-    style="display:block"
-    data-ad-client="{ADSENSE_CLIENT}"
-    data-ad-slot="{ADSENSE_SLOT}"
-    data-ad-format="auto"
-    data-full-width-responsive="true"></ins>
-<script>
-    (adsbygoogle = window.adsbygoogle || []).push({{}});
-</script>
-""", height=100)
-
 # Dictionnaire de langues (anglais, français, arabe)
 LANGUAGES = {
     "english": {
@@ -86,11 +69,7 @@ LANGUAGES = {
     }
 }
 
-# Sélection de langue
-language = st.selectbox("Language", options=list(LANGUAGES.keys()))
-lang_data = LANGUAGES[language]
-
-# Sélection de voix
+# Fonctions asynchrones
 async def get_voices(lang):
     voices = await edge_tts.VoicesManager.create()
     if lang == "french":
@@ -100,6 +79,44 @@ async def get_voices(lang):
     else:
         return voices.find(Language="en")
 
+async def test_voice(voice_name, test_text):
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+        communicate = edge_tts.Communicate(test_text, voice_name)
+        await communicate.save(tmp_file.name)
+        pygame.mixer.music.load(tmp_file.name)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            await asyncio.sleep(0.1)
+        os.unlink(tmp_file.name)
+
+async def generate_audio(text, voice_name):
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+        communicate = edge_tts.Communicate(text, voice_name)
+        await communicate.save(tmp_file.name)
+        return tmp_file.name
+
+# Interface Streamlit
+st.set_page_config(page_title="TTS Pro", layout="wide")
+
+# Injection AdSense
+components.html(ADSENSE_HEAD, height=0)
+components.html(f"""
+<ins class="adsbygoogle"
+    style="display:block"
+    data-ad-client="{ADSENSE_CLIENT}"
+    data-ad-slot="{ADSENSE_SLOT}"
+    data-ad-format="auto"
+    data-full-width-responsive="true"></ins>
+<script>
+    (adsbygoogle = window.adsbygoogle || []).push({{}});
+</script>
+""", height=100)
+
+# Sélection de langue
+language = st.selectbox("Language", options=list(LANGUAGES.keys()))
+lang_data = LANGUAGES[language]
+
+# Sélection de voix
 voices = asyncio.run(get_voices(language))
 voice_names = [v["Name"] for v in voices]
 selected_voice = st.selectbox(lang_data["select_voice"], voice_names)
@@ -107,15 +124,7 @@ selected_voice = st.selectbox(lang_data["select_voice"], voice_names)
 # Bouton de test de voix
 if st.button(lang_data["test_button"]):
     test_text = lang_data["test_text"]
-    with st.spinner("Playing test..."):
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-            communicate = edge_tts.Communicate(test_text, selected_voice)
-            await communicate.save(tmp_file.name)
-            pygame.mixer.music.load(tmp_file.name)
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():
-                await asyncio.sleep(0.1)
-            os.unlink(tmp_file.name)
+    asyncio.run(test_voice(selected_voice, test_text))
 
 # Zone de texte
 text = st.text_area(lang_data["text_label"], height=200)
@@ -126,11 +135,10 @@ if st.button(lang_data["generate"]):
         st.error(lang_data["error_empty_text"])
     else:
         with st.spinner("Generating audio..."):
-            with tempfile.NamedTemporaryFile(suffix=".mp3") as tmp_file:
-                communicate = edge_tts.Communicate(text, selected_voice)
-                await communicate.save(tmp_file.name)
-                st.audio(tmp_file.name)
-                st.success(lang_data["success"])
+            audio_file = asyncio.run(generate_audio(text, selected_voice))
+            st.audio(audio_file)
+            st.success(lang_data["success"])
+            os.unlink(audio_file)
 
 # Publicité en bas de page
 components.html(f"""
