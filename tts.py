@@ -5,7 +5,9 @@ import asyncio
 import tempfile
 from flask import Flask, Response
 
-# Configuration AdSense
+# ==============================================
+# CONFIGURATION ADSENSE (AVEC VOS IDENTIFIANTS)
+# ==============================================
 ADSENSE_SCRIPT = """
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1930140755399931"
      crossorigin="anonymous"></script>
@@ -21,14 +23,18 @@ META_TAG = """
 <meta name="google-adsense-account" content="ca-pub-1930140755399931">
 """
 
-# Création de l'application Flask pour servir ads.txt
+# ==============================================
+# SERVEUR ADS.TXT (OBLIGATOIRE POUR ADSENSE)
+# ==============================================
 app = Flask(__name__)
 
 @app.route('/ads.txt')
 def serve_ads_txt():
     return Response("google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0", mimetype='text/plain')
 
-# Configuration des langues
+# ==============================================
+# CONFIGURATION DE L'APPLICATION
+# ==============================================
 LANGUAGES = {
     "english": {
         "title": "Text to Speech",
@@ -69,12 +75,15 @@ async def save_audio(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
+# ==============================================
+# INTERFACE UTILISATEUR
+# ==============================================
 def main():
-    # Injection des balises AdSense
+    # Injection des tags AdSense
     components.html(META_TAG, height=0)
     components.html(ADSENSE_SCRIPT, height=0)
     
-    # Bannière publicitaire en haut
+    # Bannière pub en haut (remplacez 7259870550 par votre slot ID)
     components.html("""
     <ins class="adsbygoogle"
          style="display:block"
@@ -105,7 +114,7 @@ def main():
             asyncio.run(save_audio(lang_data["test_text"], selected_voice, test_file))
             st.audio(test_file)
             
-            # Publicité après le test
+            # Pub après test
             components.html("""
             <ins class="adsbygoogle"
                  style="display:block; text-align:center;"
@@ -131,7 +140,7 @@ def main():
                     st.audio(tmp_file.name)
                     st.success(lang_data["success"])
                     
-                    # Publicité après génération
+                    # Pub après génération
                     components.html("""
                     <ins class="adsbygoogle"
                          style="display:block"
@@ -144,12 +153,14 @@ def main():
                     </script>
                     """, height=100)
                     
-                    # Option pour générer un autre audio
                     if st.button("Generate another audio"):
                         st.experimental_rerun()
 
+# ==============================================
+# LANCEMENT DE L'APPLICATION
+# ==============================================
 if __name__ == "__main__":
-    # Pour que Flask et Streamlit fonctionnent ensemble sur Render
+    # Lancement du serveur Flask pour ads.txt
     from threading import Thread
     flask_thread = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 8080})
     flask_thread.daemon = True
