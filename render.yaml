@@ -3,10 +3,14 @@ services:
     name: tts-pro
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: |
-      gunicorn -b :$PORT app:flask_app & \
-      streamlit run app.py --server.port $PORT --server.headless=true
+      gunicorn -b :$PORT tts:flask_app & \
+      streamlit run tts.py --server.port $PORT --server.headless=true
     envVars:
       - key: PORT
         value: 10000
+      - key: FLASK_APP
+        value: tts.py
