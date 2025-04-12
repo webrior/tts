@@ -8,7 +8,7 @@ from threading import Thread
 
 # ================= CONFIGURATION ADSENSE =================
 ADSENSE_CLIENT = "ca-pub-1930140755399931"
-ADSENSE_SLOT = "7259870550"  # ← Remplacez par votre vrai slot AdSense !
+ADSENSE_SLOT = "7792116688"  # ← Remplacez par votre vrai slot AdSense !
 
 # Scripts AdSense
 ADSENSE_HEAD = f"""
