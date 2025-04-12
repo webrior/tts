@@ -5,36 +5,35 @@ import asyncio
 import tempfile
 from flask import Flask, Response
 
-# ==============================================
-# CONFIGURATION ADSENSE (AVEC VOS IDENTIFIANTS)
-# ==============================================
-ADSENSE_SCRIPT = """
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1930140755399931"
+# ================= CONFIGURATION ADSENSE =================
+ADSENSE_CLIENT = "ca-pub-1930140755399931"
+ADSENSE_SLOT = "7259870550"  # ← Remplacez CE numéro par votre vrai slot AdSense !
+
+# Script AdSense global
+ADSENSE_SCRIPT = f"""
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT}"
      crossorigin="anonymous"></script>
 <script>
-     (adsbygoogle = window.adsbygoogle || []).push({
-          google_ad_client: "ca-pub-1930140755399931",
+     (adsbygoogle = window.adsbygoogle || []).push({{
+          google_ad_client: "{ADSENSE_CLIENT}",
           enable_page_level_ads: true
-     });
+     }});
 </script>
 """
 
-META_TAG = """
-<meta name="google-adsense-account" content="ca-pub-1930140755399931">
+# Balise meta de vérification
+META_TAG = f"""
+<meta name="google-adsense-account" content="{ADSENSE_CLIENT}">
 """
 
-# ==============================================
-# SERVEUR ADS.TXT (OBLIGATOIRE POUR ADSENSE)
-# ==============================================
+# ================= SERVEUR ADS.TXT =================
 app = Flask(__name__)
 
 @app.route('/ads.txt')
 def serve_ads_txt():
-    return Response("google.com, pub-1930140755399931, DIRECT, f08c47fec0942fa0", mimetype='text/plain')
+    return Response(f"google.com, {ADSENSE_CLIENT}, DIRECT, f08c47fec0942fa0", mimetype='text/plain')
 
-# ==============================================
-# CONFIGURATION DE L'APPLICATION
-# ==============================================
+# ================= FONCTIONNALITÉS PRINCIPALES =================
 LANGUAGES = {
     "english": {
         "title": "Text to Speech",
@@ -75,24 +74,22 @@ async def save_audio(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
-# ==============================================
-# INTERFACE UTILISATEUR
-# ==============================================
+# ================= INTERFACE UTILISATEUR =================
 def main():
-    # Injection des tags AdSense
+    # Injection AdSense
     components.html(META_TAG, height=0)
     components.html(ADSENSE_SCRIPT, height=0)
     
-    # Bannière pub en haut (remplacez 7259870550 par votre slot ID)
-    components.html("""
+    # Bannière pub principale
+    components.html(f"""
     <ins class="adsbygoogle"
          style="display:block"
-         data-ad-client="ca-pub-1930140755399931"
-         data-ad-slot="7259870550"
+         data-ad-client="{ADSENSE_CLIENT}"
+         data-ad-slot="{ADSENSE_SLOT}"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>
     <script>
-         (adsbygoogle = window.adsbygoogle || []).push({});
+         (adsbygoogle = window.adsbygoogle || []).push({{}});
     </script>
     """, height=100)
     
@@ -102,7 +99,7 @@ def main():
     lang = st.selectbox("Language", options=list(LANGUAGES.keys()))
     lang_data = LANGUAGES[lang]
     
-    # Chargement des voix
+    # Choix de la voix
     voices = asyncio.run(get_voices(lang))
     voice_names = [v["Name"] for v in voices]
     selected_voice = st.selectbox(lang_data["select_voice"], voice_names)
@@ -115,19 +112,19 @@ def main():
             st.audio(test_file)
             
             # Pub après test
-            components.html("""
+            components.html(f"""
             <ins class="adsbygoogle"
                  style="display:block; text-align:center;"
                  data-ad-layout="in-article"
                  data-ad-format="fluid"
-                 data-ad-client="ca-pub-1930140755399931"
-                 data-ad-slot="7259870550"></ins>
+                 data-ad-client="{ADSENSE_CLIENT}"
+                 data-ad-slot="{ADSENSE_SLOT}"></ins>
             <script>
-                 (adsbygoogle = window.adsbygoogle || []).push({});
+                 (adsbygoogle = window.adsbygoogle || []).push({{}});
             </script>
             """, height=200)
     
-    # Génération d'audio principal
+    # Zone de texte principale
     text = st.text_area(lang_data["text_label"], height=200)
     
     if st.button(lang_data["generate"]):
@@ -140,27 +137,25 @@ def main():
                     st.audio(tmp_file.name)
                     st.success(lang_data["success"])
                     
-                    # Pub après génération
-                    components.html("""
+                    # Dernière pub
+                    components.html(f"""
                     <ins class="adsbygoogle"
                          style="display:block"
-                         data-ad-client="ca-pub-1930140755399931"
-                         data-ad-slot="7259870550"
+                         data-ad-client="{ADSENSE_CLIENT}"
+                         data-ad-slot="{ADSENSE_SLOT}"
                          data-ad-format="auto"
                          data-full-width-responsive="true"></ins>
                     <script>
-                         (adsbygoogle = window.adsbygoogle || []).push({});
+                         (adsbygoogle = window.adsbygoogle || []).push({{}});
                     </script>
                     """, height=100)
                     
                     if st.button("Generate another audio"):
                         st.experimental_rerun()
 
-# ==============================================
-# LANCEMENT DE L'APPLICATION
-# ==============================================
+# ================= LANCEMENT =================
 if __name__ == "__main__":
-    # Lancement du serveur Flask pour ads.txt
+    # Lancement du serveur ads.txt
     from threading import Thread
     flask_thread = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 8080})
     flask_thread.daemon = True
