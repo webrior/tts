@@ -3,16 +3,10 @@ services:
     name: tts-pro
     env: python
     plan: free
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      sudo apt-get update && sudo apt-get install -y libasound2-plugins pulseaudio ffmpeg
+    buildCommand: pip install -r requirements.txt
     startCommand: |
-      pulseaudio --start & \
       gunicorn -b :$PORT tts:flask_app --threads 2 & \
       streamlit run tts.py --server.port $PORT --server.headless=true
     envVars:
       - key: PORT
         value: 10000
-      - key: SDL_AUDIODRIVER
-        value: pulseaudio
