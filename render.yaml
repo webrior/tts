@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: tts-with-ads  # ← Nom personnalisable
+    env: python
+    plan: free  # Niveau gratuit
+
+    buildCommand: |
+      pip install -r requirements.txt
+
+    startCommand: |
+      gunicorn -b :$PORT app:flask_app & \
+      streamlit run app.py --server.port $PORT --server.headless=true
+
+    envVars:
+      - key: PORT
+        value: 10000
