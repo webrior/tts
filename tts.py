@@ -6,17 +6,12 @@ import tempfile
 import os
 from flask import Flask, Response
 from threading import Thread
-import pygame
-import threading
-
-# Initialisation pygame
-pygame.mixer.init()
 
 # Configuration AdSense
 ADSENSE_CLIENT = "ca-pub-1930140755399931"
 ADSENSE_SLOT = "7259870550"  # Remplacez par votre vrai slot AdSense
 
-# Application Flask (doit être au niveau racine)
+# Application Flask
 flask_app = Flask(__name__)
 
 @flask_app.route('/ads.txt')
@@ -36,7 +31,8 @@ LANGUAGES = {
         "success": "Audio generated successfully!",
         "test_text": "This is a test audio",
         "test_button": "Test Voice",
-        "error_empty_text": "Please enter some text"
+        "error_empty_text": "Please enter some text",
+        "audio_warning": "Audio preview available in download"
     },
     "french": {
         "title": "Synthèse Vocale Pro",
@@ -46,7 +42,8 @@ LANGUAGES = {
         "success": "Audio généré avec succès!",
         "test_text": "Ceci est un test audio",
         "test_button": "Tester la Voix",
-        "error_empty_text": "Veuillez entrer du texte"
+        "error_empty_text": "Veuillez entrer du texte",
+        "audio_warning": "Aperçu audio disponible en téléchargement"
     },
     "arabic": {
         "title": "محول النص إلى كلام",
@@ -56,7 +53,8 @@ LANGUAGES = {
         "success": "تم إنشاء الصوت بنجاح!",
         "test_text": "هذا اختبار صوتي",
         "test_button": "تجربة الصوت",
-        "error_empty_text": "الرجاء إدخال نص"
+        "error_empty_text": "الرجاء إدخال نص",
+        "audio_warning": "معاينة الصوت متاحة في التنزيل"
     }
 }
 
@@ -70,21 +68,9 @@ async def get_voices(lang):
     else:
         return voices.find(Language="en")
 
-async def test_voice(voice_name, test_text):
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-        communicate = edge_tts.Communicate(test_text, voice_name)
-        await communicate.save(tmp_file.name)
-        pygame.mixer.music.load(tmp_file.name)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            await asyncio.sleep(0.1)
-        os.unlink(tmp_file.name)
-
-async def generate_audio(text, voice_name):
-    with tempfile.NamedTemporaryFile(suffix=".mp3") as tmp_file:
-        communicate = edge_tts.Communicate(text, voice_name)
-        await communicate.save(tmp_file.name)
-        return tmp_file.name
+async def generate_audio_file(text, voice_name, file_path):
+    communicate = edge_tts.Communicate(text, voice_name)
+    await communicate.save(file_path)
 
 # Interface Streamlit
 def main():
@@ -113,10 +99,20 @@ def main():
     voice_names = [v["Name"] for v in voices]
     selected_voice = st.selectbox(lang_data["select_voice"], voice_names)
 
-    # Bouton de test de voix
+    # Bouton de test de voix (version alternative sans lecture)
     if st.button(lang_data["test_button"]):
-        test_text = lang_data["test_text"]
-        asyncio.run(test_voice(selected_voice, test_text))
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+            test_text = lang_data["test_text"]
+            asyncio.run(generate_audio_file(test_text, selected_voice, tmp_file.name))
+            with open(tmp_file.name, "rb") as f:
+                st.download_button(
+                    label="Download Test Audio",
+                    data=f,
+                    file_name="test_audio.mp3",
+                    mime="audio/mpeg"
+                )
+            st.warning(lang_data["audio_warning"])
+            os.unlink(tmp_file.name)
 
     # Zone de texte
     text = st.text_area(lang_data["text_label"], height=200)
@@ -126,12 +122,17 @@ def main():
         if not text.strip():
             st.error(lang_data["error_empty_text"])
         else:
-            with st.spinner("Generating audio..."):
-                audio_file = asyncio.run(generate_audio(text, selected_voice))
-                st.audio(audio_file)
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+                asyncio.run(generate_audio_file(text, selected_voice, tmp_file.name))
+                with open(tmp_file.name, "rb") as f:
+                    st.download_button(
+                        label="Download Audio",
+                        data=f,
+                        file_name="generated_audio.mp3",
+                        mime="audio/mpeg"
+                    )
                 st.success(lang_data["success"])
-                if os.path.exists(audio_file):
-                    os.unlink(audio_file)
+                os.unlink(tmp_file.name)
 
     # Publicité en bas de page
     components.html(f"""
